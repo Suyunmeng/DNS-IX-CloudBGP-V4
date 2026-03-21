@@ -1,0 +1,61 @@
+name: Update IPv4 List
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Run daily at 00:00 UTC
+  workflow_dispatch:  # Allow manual trigger
+    inputs:
+      force:
+        description: 'Force update and commit even if no changes detected'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    name: Update IPv4 List
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download cn-ipv4.list
+        run: |
+          curl -fsSL \
+            https://gh.pry.assets.991081.xyz/https://raw.githubusercontent.com/Suyunmeng/china-operator-ip/refs/heads/ip-lists/china.txt \
+            > cn-ipv4.list
+          sort -u cn-ipv4.list -o cn-ipv4.list
+          echo "cn-ipv4.list updated: $(wc -l < cn-ipv4.list) entries"
+      
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then
+            echo "Force update enabled, skipping change detection"
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            git diff --quiet cn-ipv4.list || echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Commit and push if changed
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add cn-ipv4.list
+          
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then
+            git commit -m "chore(lists): force update cn-ipv4.list $(date -u '+%Y-%m-%d')" || echo "No files to commit"
+          else
+            git commit -m "chore(lists): update cn-ipv4.list $(date -u '+%Y-%m-%d')"
+          fi
+          
+          git push
+      
+      - name: No changes detected
+        if: steps.check_changes.outputs.changed != 'true'
+        run: echo "No changes detected in cn-ipv4.list"
