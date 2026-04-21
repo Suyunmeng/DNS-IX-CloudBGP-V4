@@ -1,4 +1,4 @@
-module github.com/Suyunmeng/ix-yt-szbgp-dns
+module github.com/Suyunmeng/ix-yt-cloudbgp-ipv4-dns
 
 go 1.23.0
 
